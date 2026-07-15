@@ -14,3 +14,30 @@ The normalized dataset uses a two-level pandas MultiIndex:
 - Every `(date, asset_id)` pair must be unique.
 - The index must be sorted first by `date`, then by `asset_id`.
 - Missing trading sessions are not inserted or forward-filled automatically.
+
+## Canonical columns
+
+Each vendor is normalized independently into the following schema.
+
+| Column | pandas dtype | Meaning |
+|---|---|---|
+| `vendor_symbol` | `string` | Symbol submitted to or returned by the vendor. |
+| `open_raw` | `Float64` | First qualifying transaction price for the session, before back-adjustment. |
+| `high_raw` | `Float64` | Highest qualifying transaction price for the session, before back-adjustment. |
+| `low_raw` | `Float64` | Lowest qualifying transaction price for the session, before back-adjustment. |
+| `close_raw` | `Float64` | Final or official session price, before back-adjustment. |
+| `volume_raw` | `Int64` | Vendor-reported number of shares traded. |
+| `adj_close` | `Float64` | Vendor-adjusted closing price, when available. |
+| `cash_dividend` | `Float64` | Cash dividend effective on the session date, when supplied by the vendor. |
+| `split_factor` | `Float64` | Stock-split ratio effective on the session date, when supplied by the vendor. |
+| `source` | `string` | Vendor identifier, such as `yfinance` or `alpha_vantage`. |
+| `retrieved_at` | `datetime64[ns, UTC]` | Timestamp at which the vendor response was retrieved. |
+
+### Missing-value rules
+
+- Use pandas nullable dtypes: `Float64`, `Int64`, `string`, and `boolean` where applicable.
+- A field unavailable from a vendor is stored as `pd.NA`, not as zero.
+- A genuine zero reported by a vendor remains zero.
+- Raw price or volume values are never forward-filled during normalization.
+- Alpha Vantage raw daily data will have missing `adj_close`, `cash_dividend`, and `split_factor`.
+- Cross-vendor tables are created by joining vendor tables side-by-side on `(date, asset_id)`, with vendor-specific column suffixes.

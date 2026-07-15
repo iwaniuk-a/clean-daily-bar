@@ -4,6 +4,8 @@ import pytest
 from cleanbars.normalize import validate_index
 from cleanbars.normalize import CANONICAL_COLUMNS, CANONICAL_DTYPES, INDEX_NAMES
 from cleanbars.normalize import validate_columns
+from cleanbars.normalize import validate_dtypes
+
 
 def test_schema_constants():
     assert isinstance(CANONICAL_COLUMNS, tuple)
@@ -81,7 +83,7 @@ def test_validate_columns_missing():
 
 def tst_validate_columns_unexpected():
     panel = pd.DataFrame(columns=(*CANONICAL_COLUMNS, "unexpected_field"))
-    with pytest.raises(ValueError, match="unexpected"):
+    with pytest.raises(ValueError, match="Unexpected"):
         validate_columns(panel)
 
 def test_validate_columns_order():
@@ -89,4 +91,23 @@ def test_validate_columns_order():
     with pytest.raises(ValueError, match="order"):
         validate_columns(panel)
 
+###
+def test_validate_dtypes_valid():
+    panel = pd.DataFrame({
+        column: pd.Series(dtype=dtype)
+        for column, dtype in CANONICAL_DTYPES.items()
+    })
+    result = validate_dtypes(panel)
+    assert result is None
+
+def test_validate_dtypes_invalid():
+    panel = pd.DataFrame({
+        column: pd.Series(dtype=dtype)
+        for column, dtype in CANONICAL_DTYPES.items()
+    })
+    
+    panel["volume_raw"] = pd.Series(dtype="float64")
+    
+    with pytest.raises(ValueError, match="dtype"):
+        validate_dtypes(panel)
 

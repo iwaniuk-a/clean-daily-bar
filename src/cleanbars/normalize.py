@@ -45,5 +45,15 @@ def validate_columns(panel):
         raise ValueError("Missing canonical columns")
     if unexpected:
         raise ValueError("Unexpected extra columns")
-    if tuple(panel.columns)!= CANONICAL_COLUMNS:
+    if tuple(panel.columns) != CANONICAL_COLUMNS:
         raise ValueError("Correct columns in the wrong order")
+    
+def validate_dtypes(panel):
+    mismatches = {}
+    for column, expected_dtype in CANONICAL_DTYPES.items():
+        actual_dtype = str(panel[column].dtype)
+        if actual_dtype != expected_dtype:
+            mismatches[column] = f"expected {expected_dtype}, got {actual_dtype}"
+            
+    if mismatches:
+        raise ValueError(f"Column dtype mismatches found: {mismatches}")

@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 
 CANONICAL_COLUMNS = (
     "vendor_symbol",
@@ -62,3 +63,29 @@ def validate_panel(panel):
     validate_index(panel)
     validate_columns(panel)
     validate_dtypes(panel)
+
+###
+def save_panel_parquet(panel, path):
+    panel_copy = panel.copy()
+    panel_copy = panel_copy.sort_index()
+
+    out_path = Path(path)
+    validate_panel(panel_copy)
+    panel_copy.to_parquet(path = out_path, engine="pyarrow", compression="zstd")
+
+    reload = pd.read_parquet(path = out_path)
+    validate_panel(reload)
+
+    if len(panel_copy) != len(reload):
+        raise ValueError("Round-trip failed: row count differs.")
+        
+    if tuple(panel_copy.columns) != tuple(reload.columns):
+        raise ValueError("Round-trip failed: column order differs.")
+        
+    if tuple(panel_copy.index.names) != tuple(reload.index.names):
+        raise ValueError("Round-trip failed: index names differ.")
+        
+    if tuple(panel_copy.dtypes.astype(str)) != tuple(reload.dtypes.astype(str)):
+        raise ValueError("Round-trip failed: dtypes differ.")
+        
+    return out_path

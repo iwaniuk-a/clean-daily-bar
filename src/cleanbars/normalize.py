@@ -57,3 +57,8 @@ def validate_dtypes(panel):
             
     if mismatches:
         raise ValueError(f"Column dtype mismatches found: {mismatches}")
+    
+def validate_panel(panel):
+    validate_index(panel)
+    validate_columns(panel)
+    validate_dtypes(panel)

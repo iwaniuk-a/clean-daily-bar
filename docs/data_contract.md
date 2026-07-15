@@ -41,3 +41,21 @@ Each vendor is normalized independently into the following schema.
 - Raw price or volume values are never forward-filled during normalization.
 - Alpha Vantage raw daily data will have missing `adj_close`, `cash_dividend`, and `split_factor`.
 - Cross-vendor tables are created by joining vendor tables side-by-side on `(date, asset_id)`, with vendor-specific column suffixes.
+## Persistence contract
+
+Each vendor-normalized table is saved independently in Parquet format:
+
+- `data/interim/yfinance_daily.parquet`
+- `data/interim/alpha_vantage_daily.parquet`
+
+### Storage rules
+
+- Save the `(date, asset_id)` MultiIndex in the Parquet file.
+- Use the `pyarrow` engine.
+- Use `zstd` compression.
+- Do not save the DataFrame with `index=False`.
+- Sort the index immediately before writing.
+- Validate index uniqueness immediately before writing.
+- Reload the saved file once and verify that its index names, dtypes, row count, and column order match the in-memory table.
+- Never overwrite files in `data/raw/` during normalization.
+- The final cross-vendor comparison table will be saved separately under `data/processed/`.

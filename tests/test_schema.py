@@ -76,7 +76,7 @@ def test_validate_columns_valid():
 def test_validate_columns_missing():
     panel = pd.DataFrame(columns=CANONICAL_COLUMNS[:-1])
 
-    with pytest.raises(ValueError, match="missing"):
+    with pytest.raises(ValueError, match="Missing"):
         validate_columns(panel)
 
 def tst_validate_columns_unexpected():

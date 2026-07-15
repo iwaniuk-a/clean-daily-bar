@@ -9,3 +9,17 @@ universe:
   - PLTR
   - COIN
   - BRK.B
+  
+  vendors:
+  yfinance:
+    period: max
+    interval: 1d
+    auto_adjust: false
+    actions: true
+    prepost: false
+    repair: false
+
+  alpha_vantage:
+    function: TIME_SERIES_DAILY
+    outputsize: compact
+    datatype: csv

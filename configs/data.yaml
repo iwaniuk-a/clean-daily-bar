@@ -23,3 +23,9 @@ universe:
     function: TIME_SERIES_DAILY
     outputsize: compact
     datatype: csv
+    
+ symbol_overrides:
+  BRK.B:
+    yfinance: BRK-B
+    alpha_vantage: BRK-B   
+    

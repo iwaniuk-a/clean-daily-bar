@@ -66,7 +66,9 @@ def test_save_panel_parquet_sorts_index(tmp_path):
 def test_save_panel_parquet_rejects_invalid_panel(tmp_path):
     output_path = tmp_path / "panel_missing.parquet"
 
-    panel = pd.DataFrame(columns=CANONICAL_COLUMNS[:-1])
+    index = pd.MultiIndex.from_tuples([("2026-07-01", "AAPL")], names=INDEX_NAMES)
+
+    panel = pd.DataFrame(columns=CANONICAL_COLUMNS[:-1], index = index)
     with pytest.raises(ValueError, match="Missing"):
         save_panel_parquet(panel, output_path)
 

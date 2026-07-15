@@ -37,3 +37,13 @@ def validate_index(panel):
         raise ValueError("Index keys must be unique")
     if not panel.index.is_monotonic_increasing:
         raise ValueError("Index must be monotonically increasing")
+    
+def validate_columns(panel):
+    missing = [column for column in CANONICAL_COLUMNS if column not in panel.columns]
+    unexpected = [column for column in panel.columns if column not in CANONICAL_COLUMNS]
+    if missing:
+        raise ValueError("Missing canonical columns")
+    if unexpected:
+        raise ValueError("Unexpected extra columns")
+    if tuple(panel.columns)!= CANONICAL_COLUMNS:
+        raise ValueError("Correct columns in the wrong order")

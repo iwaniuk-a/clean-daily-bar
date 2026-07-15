@@ -3,6 +3,7 @@ import pytest
 
 from cleanbars.normalize import validate_index
 from cleanbars.normalize import CANONICAL_COLUMNS, CANONICAL_DTYPES, INDEX_NAMES
+from cleanbars.normalize import validate_columns
 
 def test_schema_constants():
     assert isinstance(CANONICAL_COLUMNS, tuple)
@@ -64,3 +65,28 @@ def test_validate_multiindex():
     panel = pd.DataFrame({"close_raw": [150.5, 151.0]})
     with pytest.raises(ValueError, match="MultiIndex"):
         validate_index(panel)
+
+####
+
+def test_validate_columns_valid():
+    panel = pd.DataFrame(columns=CANONICAL_COLUMNS)
+    result = validate_columns(panel)
+    assert result is None
+
+def test_validate_columns_missing():
+    panel = pd.DataFrame(columns=CANONICAL_COLUMNS[:-1])
+
+    with pytest.raises(ValueError, match="missing"):
+        validate_columns(panel)
+
+def tst_validate_columns_unexpected():
+    panel = pd.DataFrame(columns=(*CANONICAL_COLUMNS, "unexpected_field"))
+    with pytest.raises(ValueError, match="unexpected"):
+        validate_columns(panel)
+
+def test_validate_columns_order():
+    panel = pd.DataFrame(columns=tuple(reversed(CANONICAL_COLUMNS)))
+    with pytest.raises(ValueError, match="order"):
+        validate_columns(panel)
+
+

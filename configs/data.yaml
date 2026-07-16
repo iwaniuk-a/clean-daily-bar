@@ -9,26 +9,26 @@ universe:
   - PLTR
   - COIN
   - BRK.B
-  
-  vendors:
+
+vendors:
   yfinance:
-    period: max
-    interval: 1d
+    period: "max"
+    interval: "1d"
     auto_adjust: false
     actions: true
     prepost: false
     repair: false
-
   alpha_vantage:
-    function: TIME_SERIES_DAILY
-    outputsize: compact
-    datatype: csv
-    
- symbol_overrides:
+    function: "TIME_SERIES_DAILY"
+    outputsize: "compact"
+    datatype: "csv"
+
+symbol_overrides:
   BRK.B:
-    yfinance: BRK-B
-    alpha_vantage: BRK-B   
+    yfinance: "BRK-B"
+    alpha_vantage: "BRK-B"
 
 calendar:
-  name: XNYS
-  date_level: date
+  name: "XNYS"
+  date_level: "date"
+

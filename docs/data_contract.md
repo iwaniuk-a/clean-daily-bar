@@ -59,3 +59,11 @@ Each vendor-normalized table is saved independently in Parquet format:
 - Reload the saved file once and verify that its index names, dtypes, row count, and column order match the in-memory table.
 - Never overwrite files in `data/raw/` during normalization.
 - The final cross-vendor comparison table will be saved separately under `data/processed/`.
+
+### Corporate-action encoding
+
+- `cash_dividend` is `0.0` when the vendor reports no cash dividend on that date.
+- `split_factor` is `1.0` when no split occurs.
+- For yfinance, the vendor's `Stock Splits == 0.0` value is normalized to `1.0`.
+- A reported split ratio, such as `4.0` for a four-for-one split, is preserved.
+- An action field unavailable from a vendor remains `pd.NA`.

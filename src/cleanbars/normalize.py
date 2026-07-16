@@ -162,3 +162,68 @@ def normalize_yfinance_symbol(raw, asset_id, vendor_symbol, retrieved_at):
     validate_panel(df)
     
     return df
+
+###
+def normalize_alpha_vantage_symbol(raw, asset_id, vendor_symbol, retrieved_at):
+    """
+    Normalizes a single-symbol Alpha Vantage raw DataFrame into canonical format.
+    """
+    df = raw.copy()
+    
+    required_fields = ["timestamp", "open", "high", "low", "close", "volume"]
+    for field in required_fields:
+        if field not in df.columns:
+            raise ValueError(f"Required field '{field}' is missing from raw data.")
+            
+    # Parse timestamp strictly
+    dates = pd.to_datetime(df["timestamp"], format="%Y-%m-%d", errors="raise")
+    
+    # Rename canonical fields
+    rename_map = {
+        "open": "open_raw",
+        "high": "high_raw",
+        "low": "low_raw",
+        "close": "close_raw",
+        "volume": "volume_raw",
+    }
+    df = df.rename(columns=rename_map)
+    
+    # Inject missing fields as pd.NA (typed as Float64)
+    df["adj_close"] = pd.Series(pd.NA, index=df.index, dtype="Float64")
+    df["cash_dividend"] = pd.Series(pd.NA, index=df.index, dtype="Float64")
+    df["split_factor"] = pd.Series(pd.NA, index=df.index, dtype="Float64")
+    
+    # Robust retrieved_at parsing
+    retrieved_at = pd.Timestamp(retrieved_at)
+    if retrieved_at.tzinfo is None:
+        raise ValueError("retrieved_at must be a timezone-aware Timestamp.")
+    
+    df["vendor_symbol"] = vendor_symbol
+    df["source"] = "alpha_vantage"
+    df["retrieved_at"] = retrieved_at.tz_convert("UTC")
+    
+    # Explicit nanosecond precision for dates
+    dates = pd.DatetimeIndex(dates)
+    if dates.tz is not None:
+        dates = dates.tz_localize(None)
+    dates = dates.normalize().as_unit("ns")
+    
+    # Build MultiIndex
+    df.index = pd.MultiIndex.from_arrays(
+        [dates, [asset_id] * len(df)], 
+        names=INDEX_NAMES
+    )
+    
+    df = df.reindex(columns=list(CANONICAL_COLUMNS))
+    for col, dtype in CANONICAL_DTYPES.items():
+        df[col] = df[col].astype(dtype)
+        
+    df.columns.name = None
+    
+    # Alpha Vantage sends newest first; sort to canonical oldest-first
+    df = df.sort_index(ascending=True)
+    
+    validate_panel(df)
+    
+    return df
+

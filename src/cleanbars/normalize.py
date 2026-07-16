@@ -71,21 +71,21 @@ def save_panel_parquet(panel, path):
 
     out_path = Path(path)
     validate_panel(panel_copy)
-    panel_copy.to_parquet(path = out_path, engine="pyarrow", compression="zstd")
+    panel_copy.to_parquet(path=out_path, engine="pyarrow", compression="zstd")
 
-    reload = pd.read_parquet(path = out_path)
-    validate_panel(reload)
+    reloaded = pd.read_parquet(path = out_path)
+    validate_panel(reloaded)
 
-    if len(panel_copy) != len(reload):
+    if len(panel_copy) != len(reloaded):
         raise ValueError("Round-trip failed: row count differs.")
         
-    if tuple(panel_copy.columns) != tuple(reload.columns):
+    if tuple(panel_copy.columns) != tuple(reloaded.columns):
         raise ValueError("Round-trip failed: column order differs.")
         
-    if tuple(panel_copy.index.names) != tuple(reload.index.names):
+    if tuple(panel_copy.index.names) != tuple(reloaded.index.names):
         raise ValueError("Round-trip failed: index names differ.")
         
-    if tuple(panel_copy.dtypes.astype(str)) != tuple(reload.dtypes.astype(str)):
+    if tuple(panel_copy.dtypes.astype(str)) != tuple(reloaded.dtypes.astype(str)):
         raise ValueError("Round-trip failed: dtypes differ.")
         
     return out_path

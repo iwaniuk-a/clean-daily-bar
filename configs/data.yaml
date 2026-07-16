@@ -28,4 +28,7 @@ universe:
   BRK.B:
     yfinance: BRK-B
     alpha_vantage: BRK-B   
-    
+
+calendar:
+  name: XNYS
+  date_level: date

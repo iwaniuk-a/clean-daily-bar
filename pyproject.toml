@@ -3,3 +3,12 @@
 pythonpath = [
   "src"
 ]
+
+[project]
+name = "cleanbars"
+version = "0.1.0"
+dependencies = [
+    "pandas",
+    "pyarrow",
+    "exchange-calendars"
+]

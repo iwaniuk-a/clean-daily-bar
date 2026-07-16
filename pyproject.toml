@@ -13,5 +13,6 @@ dependencies = [
     "exchange-calendars",
     "yfinance",
     "pyyaml",
+    "requests"
 ]
 

@@ -227,3 +227,36 @@ def normalize_alpha_vantage_symbol(raw, asset_id, vendor_symbol, retrieved_at):
     
     return df
 
+
+def combine_normalized_panels(panels):
+    """
+    Safely concatenates multiple canonical panels, preventing duplicates and enforcing sorts.
+    """
+    # 1. Reject empty iterables
+    panels_list = list(panels)
+    if not panels_list:
+        raise ValueError("Cannot combine an empty iterable of panels.")
+        
+    # 2. Validate inputs independently
+    for p in panels_list:
+        validate_panel(p)
+        
+    # 3. Concatenate row-wise
+    combined = pd.concat(panels_list, axis=0)
+    
+    # 4. Reject duplicate keys
+    if combined.index.duplicated().any():
+        raise ValueError("Combined panel contains duplicate (date, asset_id) keys.")
+        
+    # 5. Sort by (date, asset_id)
+    combined = combined.sort_index(ascending=True)
+    
+    # 6. Reapply canonical columns and dtypes
+    combined = combined.reindex(columns=list(CANONICAL_COLUMNS))
+    for col, dtype in CANONICAL_DTYPES.items():
+        combined[col] = combined[col].astype(dtype)
+        
+    # 7. Final validation
+    validate_panel(combined)
+    
+    return combined

@@ -125,3 +125,61 @@ def test_normalize_alpha_vantage_rejects_naive_retrieved_at(dummy_alpha_vantage_
     naive_ts = pd.Timestamp("2026-07-01 12:00:00")
     with pytest.raises(ValueError, match="timezone-aware"):
         normalize_alpha_vantage_symbol(dummy_alpha_vantage_raw, "AAPL", "AAPL", naive_ts)
+
+from cleanbars.normalize import combine_normalized_panels, CANONICAL_DTYPES
+
+def _make_valid_canonical_panel(asset_id, dates):
+    dt = pd.DatetimeIndex(dates).as_unit("ns")
+    idx = pd.MultiIndex.from_arrays([dt, [asset_id] * len(dates)], names=["date", "asset_id"])
+    
+    data = {}
+    for col, dtype in CANONICAL_DTYPES.items():
+        if dtype == "string":
+            data[col] = pd.Series(["test"] * len(dates), dtype=dtype)
+        elif dtype == "Int64":
+            data[col] = pd.Series([100] * len(dates), dtype=dtype)
+        elif dtype == "datetime64[ns, UTC]":
+            data[col] = pd.Series([pd.Timestamp("2026-07-01", tz="UTC")] * len(dates), dtype=dtype)
+        else:
+            data[col] = pd.Series([1.0] * len(dates), dtype=dtype)
+            
+    return pd.DataFrame(data, index=idx)
+
+def test_combine_normalized_panels():
+    p1 = _make_valid_canonical_panel("AAPL", ["2026-07-01"])
+    p2 = _make_valid_canonical_panel("MSFT", ["2026-07-01"])
+    
+    combined = combine_normalized_panels([p1, p2])
+    assert len(combined) == 2
+    assert set(combined.index.get_level_values("asset_id")) == {"AAPL", "MSFT"}
+
+def test_combine_normalized_panels_sorts_cross_asset_index():
+    p1 = _make_valid_canonical_panel("MSFT", ["2026-07-01", "2026-07-03"])
+    p2 = _make_valid_canonical_panel("AAPL", ["2026-07-02", "2026-07-04"])
+    
+    combined = combine_normalized_panels([p1, p2])
+    assert combined.index.is_monotonic_increasing
+    dates = combined.index.get_level_values("date")
+    assert dates[0] == pd.Timestamp("2026-07-01")
+    assert dates[-1] == pd.Timestamp("2026-07-04")
+
+def test_combine_normalized_panels_rejects_empty_input():
+    with pytest.raises(ValueError, match="empty"):
+        combine_normalized_panels([])
+
+def test_combine_normalized_panels_rejects_duplicate_keys():
+    p1 = _make_valid_canonical_panel("AAPL", ["2026-07-01"])
+    p2 = _make_valid_canonical_panel("AAPL", ["2026-07-01"])  # Duplicate!
+    
+    with pytest.raises(ValueError, match="duplicate"):
+        combine_normalized_panels([p1, p2])
+
+def test_combine_normalized_panels_does_not_mutate_inputs():
+    p1 = _make_valid_canonical_panel("AAPL", ["2026-07-01"])
+    p1_copy = p1.copy(deep=True)
+    p2 = _make_valid_canonical_panel("MSFT", ["2026-07-01"])
+    p2_copy = p2.copy(deep=True)
+    
+    _ = combine_normalized_panels([p1, p2])
+    pd.testing.assert_frame_equal(p1, p1_copy)
+    pd.testing.assert_frame_equal(p2, p2_copy)

@@ -64,3 +64,14 @@ def download_alpha_vantage_symbol(symbol, settings, api_key, session):
         raise ValueError(f"Alpha Vantage returned no data for symbol: {symbol}")
         
     return df.copy()
+
+def resolve_vendor_symbol(asset_id, vendor, symbol_overrides):
+    """
+    Returns the vendor-specific symbol if mapped, otherwise returns asset_id.
+    """
+    if not asset_id or not str(asset_id).strip():
+        raise ValueError("asset_id cannot be blank.")
+    if not vendor or not str(vendor).strip():
+        raise ValueError("vendor cannot be blank.")
+        
+    return symbol_overrides.get(asset_id, {}).get(vendor, asset_id)

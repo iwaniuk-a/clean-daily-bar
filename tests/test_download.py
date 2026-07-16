@@ -104,3 +104,25 @@ def test_download_alpha_vantage_rejects_empty_response(mock_session):
     
     with pytest.raises(ValueError, match="no data"):
         download_alpha_vantage_symbol("AAPL", settings, "KEY", mock_session)
+
+from cleanbars.download import resolve_vendor_symbol
+
+def test_resolve_vendor_symbol_uses_override():
+    overrides = {"BRK.B": {"yfinance": "BRK-B", "alpha_vantage": "BRK-B"}}
+    assert resolve_vendor_symbol("BRK.B", "yfinance", overrides) == "BRK-B"
+
+def test_resolve_vendor_symbol_falls_back_to_asset_id():
+    overrides = {"BRK.B": {"yfinance": "BRK-B"}}
+    assert resolve_vendor_symbol("AAPL", "yfinance", overrides) == "AAPL"
+
+def test_resolve_vendor_symbol_rejects_blank_input():
+    with pytest.raises(ValueError):
+        resolve_vendor_symbol("", "yfinance", {})
+    with pytest.raises(ValueError):
+        resolve_vendor_symbol("AAPL", "  ", {})
+
+def test_resolve_vendor_symbol_does_not_mutate_mapping():
+    overrides = {"BRK.B": {"yfinance": "BRK-B"}}
+    orig = {"BRK.B": {"yfinance": "BRK-B"}}
+    resolve_vendor_symbol("AAPL", "yfinance", overrides)
+    assert overrides == orig

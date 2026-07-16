@@ -1,5 +1,5 @@
-import math
 import pandas as pd
+import pytest
 from cleanbars.normalize import CANONICAL_COLUMNS, CANONICAL_DTYPES, INDEX_NAMES
 from cleanbars.validate import build_vendor_comparison
 
@@ -18,57 +18,60 @@ def _make_panel(rows, index_tuples):
     return df.sort_index()
 
 def test_build_vendor_comparison():
-    # Setup yfinance panel
     yf_rows = [
         [10.0, 10.0, 10.0, 100.0, 1000],  # MATCH
         [10.0, 10.0, 10.0, 100.0, 2000],  # DIFF
         [10.0, 10.0, 10.0, 100.0, 1000],  # YF_ONLY
+        [10.0, 10.0, 10.0, pd.NA, 1000],  # NA_CLOSE (Exists, but NaN close)
         [10.0, 10.0, 10.0, 0.0, 0],       # ZERO
     ]
     yf_idx = [
         (pd.Timestamp("2026-07-01"), "MATCH"),
         (pd.Timestamp("2026-07-01"), "DIFF"),
         (pd.Timestamp("2026-07-01"), "YF_ONLY"),
+        (pd.Timestamp("2026-07-01"), "NA_CLOSE"),
         (pd.Timestamp("2026-07-01"), "ZERO"),
     ]
-    yf_panel = _make_panel(yf_rows, yf_idx)
-    yf_panel_original = yf_panel.copy(deep=True)
     
-    # Setup alpha_vantage panel
     av_rows = [
         [10.0, 10.0, 10.0, 100.0, 1000],  # MATCH
-        [10.0, 10.0, 10.0, 110.0, 2200],  # DIFF (close: 110)
-        [10.0, 10.0, 10.0, 100.0, 1000],  # AV_ONLY
+        [10.0, 10.0, 10.0, 110.0, 2200],  # DIFF
         [10.0, 10.0, 10.0, 0.0, 0],       # ZERO
     ]
     av_idx = [
         (pd.Timestamp("2026-07-01"), "MATCH"),
         (pd.Timestamp("2026-07-01"), "DIFF"),
-        (pd.Timestamp("2026-07-01"), "AV_ONLY"),
         (pd.Timestamp("2026-07-01"), "ZERO"),
     ]
+    
+    yf_panel = _make_panel(yf_rows, yf_idx)
     av_panel = _make_panel(av_rows, av_idx)
-    av_panel_original = av_panel.copy(deep=True)
+    
+    yf_original = yf_panel.copy(deep=True)
+    av_original = av_panel.copy(deep=True)
     
     comp = build_vendor_comparison(yf_panel, av_panel)
     
-    # 1. Input panels are not mutated
-    pd.testing.assert_frame_equal(yf_panel, yf_panel_original)
-    pd.testing.assert_frame_equal(av_panel, av_panel_original)
+    # 1. Copies of both inputs remain equal to their original versions
+    pd.testing.assert_frame_equal(yf_panel, yf_original)
+    pd.testing.assert_frame_equal(av_panel, av_original)
     
-    # 2. Identical close and volume produce zero diffs
-    assert comp.loc[(pd.Timestamp("2026-07-01"), "MATCH"), "close_abs_diff"] == 0
-    assert comp.loc[(pd.Timestamp("2026-07-01"), "MATCH"), "close_rel_diff"] == 0
+    # 2. Identical values produce zero absolute and relative differences
+    assert comp.loc[(pd.Timestamp("2026-07-01"), "MATCH"), "close_abs_diff"] == 0.0
+    assert comp.loc[(pd.Timestamp("2026-07-01"), "MATCH"), "close_rel_diff"] == 0.0
     
-    # 3. Known values produce exact symmetric rel diff (100 vs 110 = 10 / 105)
-    expected_rel_diff = 10.0 / 105.0
-    assert math.isclose(comp.loc[(pd.Timestamp("2026-07-01"), "DIFF"), "close_rel_diff"], expected_rel_diff)
+    # 3. 100 versus 110 produces approx(10/105)
+    assert comp.loc[(pd.Timestamp("2026-07-01"), "DIFF"), "close_rel_diff"] == pytest.approx(10 / 105)
     
-    # 4. Keys present in only one vendor remain with NaN differences
+    # 4. Row present only in YF remains in output, observed flag True, AV False, diffs missing
     assert (pd.Timestamp("2026-07-01"), "YF_ONLY") in comp.index
     assert comp.loc[(pd.Timestamp("2026-07-01"), "YF_ONLY"), "yfinance_observed"] == True
     assert comp.loc[(pd.Timestamp("2026-07-01"), "YF_ONLY"), "alpha_vantage_observed"] == False
+    assert pd.isna(comp.loc[(pd.Timestamp("2026-07-01"), "YF_ONLY"), "close_abs_diff"])
     assert pd.isna(comp.loc[(pd.Timestamp("2026-07-01"), "YF_ONLY"), "close_rel_diff"])
     
-    # 5. Zero handling doesn't divide by zero
+    # 5. Row that exists but has close_raw=pd.NA is still marked as observed
+    assert comp.loc[(pd.Timestamp("2026-07-01"), "NA_CLOSE"), "yfinance_observed"] == True
+    
+    # 6. Two zero values produce relative difference 0.0
     assert comp.loc[(pd.Timestamp("2026-07-01"), "ZERO"), "close_rel_diff"] == 0.0

@@ -39,7 +39,7 @@ def build_jump_checks(panel, threshold=0.25):
         raise ValueError('threshold must be positive')
     
     returns = panel["close_raw"].groupby(level="asset_id").pct_change(fill_method=None)
-    jumps = returns.abs().gt(threshold)
+    jumps = returns.abs().gt(threshold).fillna(False)
 
     return pd.DataFrame({
         "raw_close_return": returns,
@@ -50,19 +50,30 @@ def build_vendor_comparison(yfinance_panel, alpha_vantage_panel):
     validate_panel(yfinance_panel)
     validate_panel(alpha_vantage_panel)
 
-    yf = yfinance_panel[["close_raw", "volume_raw"]].rename(columns={
+    yf = yfinance_panel[["close_raw", "volume_raw"]].rename(
+    columns={
         "close_raw": "yfinance_close_raw",
-        "volume_raw": "yfinance_volume_raw"
-    })
-    av = alpha_vantage_panel[["close_raw", "volume_raw"]].rename(columns={
+        "volume_raw": "yfinance_volume_raw",
+    }
+    ).copy()
+    yf["yfinance_observed"] = True
+
+    av = alpha_vantage_panel[["close_raw", "volume_raw"]].rename(
+    columns={
         "close_raw": "alpha_vantage_close_raw",
         "volume_raw": "alpha_vantage_volume_raw"
-    })
+    }
+    ).copy()
+    av["alpha_vantage_observed"] = True
 
     joined = yf.join(av, how="outer").sort_index()
     
-    joined["yfinance_observed"] = joined["yfinance_close_raw"].notna()
-    joined["alpha_vantage_observed"] = joined["alpha_vantage_close_raw"].notna()
+    joined["yfinance_observed"] = (
+        joined["yfinance_observed"].fillna(False).astype(bool)
+    )
+    joined["alpha_vantage_observed"] = (
+        joined["alpha_vantage_observed"].fillna(False).astype(bool)
+    )
 
     # 1. Close Differences
     joined["close_abs_diff"] = (joined["yfinance_close_raw"] - joined["alpha_vantage_close_raw"]).abs()

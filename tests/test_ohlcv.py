@@ -99,36 +99,40 @@ def test_summarize_checks_by_asset():
 ###
 def test_build_jump_checks():
     rows = [
-        [10.0, 10.0, 10.0, 100.0, 100],  # AAPL T1
+        [10.0, 10.0, 10.0, 100.0, 100],  # AAPL T1: reset
         [10.0, 10.0, 10.0, 125.0, 100],  # AAPL T2: +25% (exact threshold)
-        [10.0, 10.0, 10.0, 160.0, 100],  # AAPL T3: >25% (jump!)
-        [10.0, 10.0, 10.0, 100.0, 100],  # MSFT T1: reset for new asset
+        [10.0, 10.0, 10.0, 100.0, 100],  # AAPL T3: back down
+        [10.0, 10.0, 10.0, 126.0, 100],  # AAPL T4: +26% (jump!)
+        [10.0, 10.0, 10.0, 100.0, 100],  # MSFT T1: reset
         [10.0, 10.0, 10.0, 50.0,  100],  # MSFT T2: -50% (jump / split)
     ]
     idx = [
         (pd.Timestamp("2026-07-01"), "AAPL"),
         (pd.Timestamp("2026-07-02"), "AAPL"),
         (pd.Timestamp("2026-07-03"), "AAPL"),
+        (pd.Timestamp("2026-07-04"), "AAPL"),
         (pd.Timestamp("2026-07-01"), "MSFT"),
         (pd.Timestamp("2026-07-02"), "MSFT"),
     ]
     panel = _make_panel(rows, idx)
-    
     checks = build_jump_checks(panel, threshold=0.25)
     
-    # Returns reset at first row of each asset
+    # 1. First row of every asset has a missing return and suspicious_jump == False
     assert pd.isna(checks.loc[(pd.Timestamp("2026-07-01"), "AAPL"), "raw_close_return"])
+    assert checks.loc[(pd.Timestamp("2026-07-01"), "AAPL"), "suspicious_jump"] == False
     assert pd.isna(checks.loc[(pd.Timestamp("2026-07-01"), "MSFT"), "raw_close_return"])
+    assert checks.loc[(pd.Timestamp("2026-07-01"), "MSFT"), "suspicious_jump"] == False
     
-    # Exact threshold is not flagged
-    assert checks.loc[(pd.Timestamp("2026-07-02"), "AAPL"), "raw_close_return"] == 0.25
+    # 2. 100 -> 125 is not flagged at threshold=0.25
+    assert checks.loc[(pd.Timestamp("2026-07-02"), "AAPL"), "raw_close_return"] == pytest.approx(0.25)
     assert checks.loc[(pd.Timestamp("2026-07-02"), "AAPL"), "suspicious_jump"] == False
     
-    # Move larger than threshold is flagged
-    assert checks.loc[(pd.Timestamp("2026-07-03"), "AAPL"), "suspicious_jump"] == True
+    # 3. 100 -> 126 is flagged
+    assert checks.loc[(pd.Timestamp("2026-07-04"), "AAPL"), "raw_close_return"] == pytest.approx(0.26)
+    assert checks.loc[(pd.Timestamp("2026-07-04"), "AAPL"), "suspicious_jump"] == True
     
-    # 100 -> 50 move (-50%) is flagged (absolute size > 0.25)
-    assert checks.loc[(pd.Timestamp("2026-07-02"), "MSFT"), "raw_close_return"] == -0.50
+    # 4. 100 -> 50 (-50%) is flagged as suspicious
+    assert checks.loc[(pd.Timestamp("2026-07-02"), "MSFT"), "raw_close_return"] == pytest.approx(-0.50)
     assert checks.loc[(pd.Timestamp("2026-07-02"), "MSFT"), "suspicious_jump"] == True
 
 def test_jump_checks_rejects_negative_threshold():

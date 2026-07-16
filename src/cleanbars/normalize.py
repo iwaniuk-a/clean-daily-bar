@@ -39,6 +39,15 @@ def validate_index(panel):
     if not panel.index.is_monotonic_increasing:
         raise ValueError("Index must be monotonically increasing")
     
+    dates = panel.index.get_level_values("date")
+
+    if not isinstance(dates, pd.DatetimeIndex):
+        raise ValueError("Dates must me in datetime format")
+    if dates.tz is not None:
+        raise ValueError("Dates must be timezone-naive")
+    if not dates.equals(dates.normalize()):
+        raise ValueError("Every timestamp must equal its normalized value")
+    
 def validate_columns(panel):
     missing = [column for column in CANONICAL_COLUMNS if column not in panel.columns]
     unexpected = [column for column in panel.columns if column not in CANONICAL_COLUMNS]

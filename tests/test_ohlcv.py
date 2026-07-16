@@ -26,7 +26,7 @@ def test_structural_checks_valid_panel():
         [10.0, 12.0, 9.0, 11.0, 100],
         [11.0, 13.0, 10.0, 12.0, 200]
     ]
-    idx = [("2026-07-01", "AAPL"), ("2026-07-02", "AAPL")]
+    idx = [(pd.Timestamp("2026-07-01"), "AAPL"), (pd.Timestamp("2026-07-02"), "AAPL")]
     panel = _make_panel(rows, idx)
 
     checks = build_structural_checks(panel)
@@ -51,11 +51,11 @@ def test_structural_checks_flag_anomalies():
         [10.0, 5.0, 15.0, 11.0, 100],    # Row 4: high_below_low (high 5.0 < low 15.0)
     ]
     idx = [
-        ("2026-07-01", "ERR1"),
-        ("2026-07-02", "ERR2"),
-        ("2026-07-03", "ERR3"),
-        ("2026-07-04", "ERR4"),
-        ("2026-07-05", "ERR5"),
+        (pd.Timestamp("2026-07-01"), "ERR1"),
+        (pd.Timestamp("2026-07-02"), "ERR2"),
+        (pd.Timestamp("2026-07-03"), "ERR3"),
+        (pd.Timestamp("2026-07-04"), "ERR4"),
+        (pd.Timestamp("2026-07-05"), "ERR5"),
     ]
     panel = _make_panel(rows, idx)
     checks = build_structural_checks(panel)
@@ -75,10 +75,10 @@ def test_summarize_checks_by_asset():
         [-5.0, 12.0, 9.0, 11.0, 100],    # TSLA: nonpositive price
     ]
     idx = [
-        ("2026-07-01", "AAPL"),
-        ("2026-07-02", "AAPL"),
-        ("2026-07-01", "MSFT"),
-        ("2026-07-01", "TSLA"),
+        (pd.Timestamp("2026-07-01"), "AAPL"),
+        (pd.Timestamp("2026-07-02"), "AAPL"),
+        (pd.Timestamp("2026-07-01"), "MSFT"),
+        (pd.Timestamp("2026-07-01"), "TSLA"),
     ]
     panel = _make_panel(rows, idx)
     checks = build_structural_checks(panel)

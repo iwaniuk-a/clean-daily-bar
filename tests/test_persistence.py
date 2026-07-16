@@ -11,9 +11,9 @@ from cleanbars.normalize import validate_panel
 def _build_fully_typed_panel(sorted_idx=True):
 
     if sorted_idx:
-        idx = [("2026-07-01", "AAPL"), ("2026-07-02", "AAPL")]
+        idx = [(pd.Timestamp("2026-07-01"), "AAPL"), (pd.Timestamp("2026-07-02"), "AAPL")]
     else:
-        idx = [("2026-07-02", "AAPL"), ("2026-07-01", "AAPL")]
+        idx = [(pd.Timestamp("2026-07-02"), "AAPL"), (pd.Timestamp("2026-07-01"), "AAPL")]
         
     index = pd.MultiIndex.from_tuples(idx, names=INDEX_NAMES)
     
@@ -66,7 +66,7 @@ def test_save_panel_parquet_sorts_index(tmp_path):
 def test_save_panel_parquet_rejects_invalid_panel(tmp_path):
     output_path = tmp_path / "panel_missing.parquet"
 
-    index = pd.MultiIndex.from_tuples([("2026-07-01", "AAPL")], names=INDEX_NAMES)
+    index = pd.MultiIndex.from_tuples([(pd.Timestamp("2026-07-01"), "AAPL")], names=INDEX_NAMES)
 
     panel = pd.DataFrame(columns=CANONICAL_COLUMNS[:-1], index = index)
     with pytest.raises(ValueError, match="Missing"):

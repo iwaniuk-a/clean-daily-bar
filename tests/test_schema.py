@@ -35,14 +35,14 @@ def test_index_names():
     assert len(INDEX_NAMES) == len(set(INDEX_NAMES))
 
 def test_validate_index_panel():
-    index = pd.MultiIndex.from_tuples([("2026-07-01", "AAPL"), ("2026-07-02", "AAPL")],
+    index = pd.MultiIndex.from_tuples([(pd.Timestamp("2026-07-01"), "AAPL"), (pd.Timestamp("2026-07-02"), "AAPL")],
         names=("date", "asset_id"))
     panel = pd.DataFrame({"close_raw": [150.5, 151.0]}, index=index)
     result = validate_index(panel)
     assert result is None
 
 def test_duplicate_index_panel():
-    index = pd.MultiIndex.from_tuples([("2026-07-01", "AAPL"), ("2026-07-01", "AAPL")],
+    index = pd.MultiIndex.from_tuples([(pd.Timestamp("2026-07-01"), "AAPL"), (pd.Timestamp("2026-07-01"), "AAPL")],
         names=("date", "asset_id"))
     panel = pd.DataFrame({"close_raw": [150.5, 151.0]}, index=index)
 
@@ -50,14 +50,14 @@ def test_duplicate_index_panel():
         validate_index(panel)
 
 def test_names_index_panel():
-    index = pd.MultiIndex.from_tuples([("2026-07-01", "AAPL"), ("2026-07-02", "AAPL")],
+    index = pd.MultiIndex.from_tuples([(pd.Timestamp("2026-07-01"), "AAPL"), (pd.Timestamp("2026-07-02"), "AAPL")],
         names=("timestamp", "ticker"))
     panel = pd.DataFrame({"close_raw": [150.5, 151.0]}, index=index)
     with pytest.raises(ValueError, match="names"):
         validate_index(panel)
 
 def test_validate_dates():
-    index = pd.MultiIndex.from_tuples([("2026-07-02", "AAPL"),("2026-07-01", "AAPL")],
+    index = pd.MultiIndex.from_tuples([(pd.Timestamp("2026-07-02"), "AAPL"),(pd.Timestamp("2026-07-01"), "AAPL")],
         names=("date", "asset_id"))
     panel = pd.DataFrame({"close_raw": [150.5, 151.0]}, index=index)
     with pytest.raises(ValueError, match="monotonically"):
@@ -93,18 +93,28 @@ def test_validate_columns_order():
 
 ###
 def test_validate_dtypes_valid():
+    empty_index = pd.MultiIndex.from_arrays([
+        pd.DatetimeIndex([], dtype="datetime64[ns]"),
+        pd.Series([], dtype="string")
+    ], names=INDEX_NAMES)
+    
     panel = pd.DataFrame({
         column: pd.Series(dtype=dtype)
         for column, dtype in CANONICAL_DTYPES.items()
-    })
+    }, index=empty_index)
     result = validate_dtypes(panel)
     assert result is None
 
 def test_validate_dtypes_invalid():
+    empty_index = pd.MultiIndex.from_arrays([
+        pd.DatetimeIndex([], dtype="datetime64[ns]"),
+        pd.Series([], dtype="string")
+    ], names=INDEX_NAMES)
+    
     panel = pd.DataFrame({
         column: pd.Series(dtype=dtype)
         for column, dtype in CANONICAL_DTYPES.items()
-    })
+    }, index=empty_index)
     
     panel["volume_raw"] = pd.Series(dtype="float64")
     
@@ -113,29 +123,49 @@ def test_validate_dtypes_invalid():
 
 ###
 def test_validate_panel_valid():
+    empty_index = pd.MultiIndex.from_arrays([
+        pd.DatetimeIndex([], dtype="datetime64[ns]"),
+        pd.Series([], dtype="string")
+    ], names=INDEX_NAMES)
+    
     panel = pd.DataFrame({
         column: pd.Series(dtype=dtype)
         for column, dtype in CANONICAL_DTYPES.items()
-    })
+    }, index=empty_index)
 
-    panel.index = pd.MultiIndex.from_arrays(
-        [[], []],
-        names=INDEX_NAMES,
-    )
     result = validate_panel(panel)
     assert result is None
 
 def test_validate_panel_propagates_dtype_error():
+    empty_index = pd.MultiIndex.from_arrays([
+        pd.DatetimeIndex([], dtype="datetime64[ns]"),
+        pd.Series([], dtype="string")
+    ], names=INDEX_NAMES)
+    
     panel = pd.DataFrame({
         column: pd.Series(dtype=dtype)
         for column, dtype in CANONICAL_DTYPES.items()
-    })
+    }, index=empty_index)
 
-    panel.index = pd.MultiIndex.from_arrays(
-        [[], []],
-        names=INDEX_NAMES,
-    )
     panel["volume_raw"] = pd.Series(dtype="float64")
 
     with pytest.raises(ValueError, match="dtype"):
         validate_panel(panel)
+
+def test_validate_index_rejects_string_dates():
+    index = pd.MultiIndex.from_tuples([("2026-07-01", "AAPL")], names=INDEX_NAMES)
+    panel = pd.DataFrame({"close_raw": [150.5]}, index=index)
+    with pytest.raises(ValueError, match="datetime"):
+        validate_index(panel)
+
+def test_validate_index_rejects_timezone_aware_dates():
+    index = pd.MultiIndex.from_tuples([(pd.Timestamp("2026-07-01", tz="UTC"), "AAPL")], names=INDEX_NAMES)
+    panel = pd.DataFrame({"close_raw": [150.5]}, index=index)
+    with pytest.raises(ValueError, match="timezone-naive"):
+        validate_index(panel)
+
+def test_validate_index_rejects_intraday_timestamps():
+    index = pd.MultiIndex.from_tuples([(pd.Timestamp("2026-07-01 16:00:00"), "AAPL")], names=INDEX_NAMES)
+    panel = pd.DataFrame({"close_raw": [150.5]}, index=index)
+    with pytest.raises(ValueError, match="normalized"):
+        validate_index(panel)

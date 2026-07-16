@@ -1,6 +1,8 @@
 import pandas as pd
+import pytest
 from cleanbars.normalize import CANONICAL_COLUMNS, CANONICAL_DTYPES, INDEX_NAMES
 from cleanbars.validate import build_structural_checks, summarize_checks
+from cleanbars.validate import build_jump_checks
 
 def _make_panel(rows, index_tuples):
     df = pd.DataFrame(rows, columns=["open_raw", "high_raw", "low_raw", "close_raw", "volume_raw"]) 
@@ -93,3 +95,45 @@ def test_summarize_checks_by_asset():
     
     # TSLA should have 1 nonpositive price flag
     assert summary.loc["TSLA", "nonpositive_price"] == 1
+
+###
+def test_build_jump_checks():
+    rows = [
+        [10.0, 10.0, 10.0, 100.0, 100],  # AAPL T1
+        [10.0, 10.0, 10.0, 125.0, 100],  # AAPL T2: +25% (exact threshold)
+        [10.0, 10.0, 10.0, 160.0, 100],  # AAPL T3: >25% (jump!)
+        [10.0, 10.0, 10.0, 100.0, 100],  # MSFT T1: reset for new asset
+        [10.0, 10.0, 10.0, 50.0,  100],  # MSFT T2: -50% (jump / split)
+    ]
+    idx = [
+        (pd.Timestamp("2026-07-01"), "AAPL"),
+        (pd.Timestamp("2026-07-02"), "AAPL"),
+        (pd.Timestamp("2026-07-03"), "AAPL"),
+        (pd.Timestamp("2026-07-01"), "MSFT"),
+        (pd.Timestamp("2026-07-02"), "MSFT"),
+    ]
+    panel = _make_panel(rows, idx)
+    
+    checks = build_jump_checks(panel, threshold=0.25)
+    
+    # Returns reset at first row of each asset
+    assert pd.isna(checks.loc[(pd.Timestamp("2026-07-01"), "AAPL"), "raw_close_return"])
+    assert pd.isna(checks.loc[(pd.Timestamp("2026-07-01"), "MSFT"), "raw_close_return"])
+    
+    # Exact threshold is not flagged
+    assert checks.loc[(pd.Timestamp("2026-07-02"), "AAPL"), "raw_close_return"] == 0.25
+    assert checks.loc[(pd.Timestamp("2026-07-02"), "AAPL"), "suspicious_jump"] == False
+    
+    # Move larger than threshold is flagged
+    assert checks.loc[(pd.Timestamp("2026-07-03"), "AAPL"), "suspicious_jump"] == True
+    
+    # 100 -> 50 move (-50%) is flagged (absolute size > 0.25)
+    assert checks.loc[(pd.Timestamp("2026-07-02"), "MSFT"), "raw_close_return"] == -0.50
+    assert checks.loc[(pd.Timestamp("2026-07-02"), "MSFT"), "suspicious_jump"] == True
+
+def test_jump_checks_rejects_negative_threshold():
+    panel = _make_panel([[10.0, 10.0, 10.0, 100.0, 100]], [(pd.Timestamp("2026-07-01"), "AAPL")])
+    with pytest.raises(ValueError):
+        build_jump_checks(panel, threshold=0)
+    with pytest.raises(ValueError):
+        build_jump_checks(panel, threshold=-0.1)

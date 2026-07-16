@@ -9,13 +9,14 @@ from cleanbars.normalize import validate_dtypes
 from cleanbars.normalize import validate_panel
 
 def _build_fully_typed_panel(sorted_idx=True):
-
     if sorted_idx:
-        idx = [(pd.Timestamp("2026-07-01"), "AAPL"), (pd.Timestamp("2026-07-02"), "AAPL")]
+        dates = ["2026-07-01", "2026-07-02"]
     else:
-        idx = [(pd.Timestamp("2026-07-02"), "AAPL"), (pd.Timestamp("2026-07-01"), "AAPL")]
+        dates = ["2026-07-02", "2026-07-01"]
         
-    index = pd.MultiIndex.from_tuples(idx, names=INDEX_NAMES)
+    # Enforce strict nanosecond precision
+    dt_index = pd.DatetimeIndex(dates).as_unit("ns")
+    index = pd.MultiIndex.from_arrays([dt_index, ["AAPL", "AAPL"]], names=INDEX_NAMES)
     
     data = {}
     for col, dtype in CANONICAL_DTYPES.items():
@@ -66,7 +67,9 @@ def test_save_panel_parquet_sorts_index(tmp_path):
 def test_save_panel_parquet_rejects_invalid_panel(tmp_path):
     output_path = tmp_path / "panel_missing.parquet"
 
-    index = pd.MultiIndex.from_tuples([(pd.Timestamp("2026-07-01"), "AAPL")], names=INDEX_NAMES)
+    # Enforce strict nanosecond precision
+    dt_index = pd.DatetimeIndex(["2026-07-01"]).as_unit("ns")
+    index = pd.MultiIndex.from_arrays([dt_index, ["AAPL"]], names=INDEX_NAMES)
 
     panel = pd.DataFrame(columns=CANONICAL_COLUMNS[:-1], index = index)
     with pytest.raises(ValueError, match="Missing"):

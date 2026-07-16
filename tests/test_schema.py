@@ -6,6 +6,7 @@ from cleanbars.normalize import CANONICAL_COLUMNS, CANONICAL_DTYPES, INDEX_NAMES
 from cleanbars.normalize import validate_columns
 from cleanbars.normalize import validate_dtypes
 from cleanbars.normalize import validate_panel
+from cleanbars.normalize import normalize_yfinance_symbol
 
 def test_schema_constants():
     assert isinstance(CANONICAL_COLUMNS, tuple)
@@ -169,3 +170,16 @@ def test_validate_index_rejects_intraday_timestamps():
     panel = pd.DataFrame({"close_raw": [150.5]}, index=index)
     with pytest.raises(ValueError, match="normalized"):
         validate_index(panel)
+
+###
+def dummy_yfinance_raw():
+    cols = pd.MultiIndex.from_product(
+        [["Open", "High", "Low", "Close", "Volume", "Adj Close", "Dividends", "Stock Splits"], ["AAPL"]],
+        names=["Price", "Ticker"]
+    )
+    idx = pd.DatetimeIndex(["2026-07-01", "2026-07-02"])
+    data = [
+        [150.0, 155.0, 149.0, 152.0, 1000000, 152.0, 0.0, 0.0],
+        [152.0, 153.0, 148.0, 150.0, 1200000, 150.0, 0.5, 4.0] 
+    ]
+    return pd.DataFrame(data, index=idx, columns=cols)

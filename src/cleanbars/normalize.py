@@ -69,6 +69,8 @@ def validate_dtypes(panel):
         raise ValueError(f"Column dtype mismatches found: {mismatches}")
     
 def validate_panel(panel):
+    if panel.index.get_level_values("date").dtype != "datetime64[ns]":
+        raise ValueError("date level in index must have nanosecond precision (datetime64[ns]).")
     validate_index(panel)
     validate_columns(panel)
     validate_dtypes(panel)
@@ -98,3 +100,65 @@ def save_panel_parquet(panel, path):
         raise ValueError("Round-trip failed: dtypes differ.")
         
     return out_path
+
+###
+def normalize_yfinance_symbol(raw, asset_id, vendor_symbol, retrieved_at):
+    df = raw.copy()
+    
+    if not isinstance(df.columns, pd.MultiIndex):
+        raise ValueError("Raw yfinance columns must be a pd.MultiIndex.")
+        
+    if vendor_symbol not in df.columns.get_level_values("Ticker"):
+        raise ValueError(f"Symbol '{vendor_symbol}' not found in 'Ticker' level.")
+    df = df.xs(vendor_symbol, axis=1, level="Ticker")
+    
+    required_fields = ["Open", "High", "Low", "Close", "Volume", "Adj Close", "Dividends", "Stock Splits"]
+    for field in required_fields:
+        if field not in df.columns:
+            raise ValueError(f"Required field '{field}' is missing from raw data.")
+            
+    df = df[required_fields].copy()
+    
+    rename_map = {
+        "Open": "open_raw",
+        "High": "high_raw",
+        "Low": "low_raw",
+        "Close": "close_raw",
+        "Volume": "volume_raw",
+        "Adj Close": "adj_close",
+        "Dividends": "cash_dividend",
+        "Stock Splits": "split_factor",
+    }
+    df = df.rename(columns=rename_map)
+    df["split_factor"] = df["split_factor"].replace(0.0, 1.0)
+    
+    # Robust retrieved_at parsing
+    retrieved_at = pd.Timestamp(retrieved_at)
+    if retrieved_at.tzinfo is None:
+        raise ValueError("retrieved_at must be a timezone-aware Timestamp.")
+    
+    df["vendor_symbol"] = vendor_symbol
+    df["source"] = "yfinance"
+    df["retrieved_at"] = retrieved_at.tz_convert("UTC")
+    
+    # Date formatting to explicit nanosecond precision
+    dates = pd.DatetimeIndex(pd.to_datetime(df.index))
+    if dates.tz is not None:
+        dates = dates.tz_localize(None)
+    dates = dates.normalize().as_unit("ns")
+    
+    df.index = pd.MultiIndex.from_arrays(
+        [dates, [asset_id] * len(df)], 
+        names=INDEX_NAMES
+    )
+    
+    df = df.reindex(columns=list(CANONICAL_COLUMNS))
+    for col, dtype in CANONICAL_DTYPES.items():
+        df[col] = df[col].astype(dtype)
+        
+    df.columns.name = None
+    df = df.sort_index()
+    
+    validate_panel(df)
+    
+    return df

@@ -14,7 +14,9 @@ def _make_panel(rows, index_tuples):
     for col, dtype in CANONICAL_DTYPES.items():
         df[col] = df[col].astype(dtype)
     df = df.loc[:, list(CANONICAL_COLUMNS)]
-    df.index = pd.MultiIndex.from_tuples(index_tuples, names=INDEX_NAMES)
+    dates = pd.DatetimeIndex([t[0] for t in index_tuples]).as_unit("ns")
+    assets = [t[1] for t in index_tuples]
+    df.index = pd.MultiIndex.from_arrays([dates, assets], names=INDEX_NAMES)
     return df.sort_index()
 
 def test_build_vendor_comparison():

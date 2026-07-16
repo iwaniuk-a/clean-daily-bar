@@ -15,3 +15,10 @@ venv/
 .env
 R.Rhistory
 .Rhistory
+
+# Generated market-data artifacts
+data/raw/**/*.csv
+data/raw/**/*.json
+data/raw/**/*.parquet
+data/interim/**/*.parquet
+data/processed/**/*.parquet

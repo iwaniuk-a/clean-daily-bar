@@ -37,7 +37,7 @@ def build_jump_checks(panel, threshold=0.25):
 
     if threshold <= 0:
         raise ValueError('threshold must be positive')
-    
+
     returns = panel["close_raw"].groupby(level="asset_id").pct_change(fill_method=None)
     jumps = returns.abs().gt(threshold).fillna(False)
 
@@ -67,7 +67,7 @@ def build_vendor_comparison(yfinance_panel, alpha_vantage_panel):
     av["alpha_vantage_observed"] = True
 
     joined = yf.join(av, how="outer").sort_index()
-    
+
     joined["yfinance_observed"] = (
         joined["yfinance_observed"].fillna(False).astype(bool)
     )
@@ -79,18 +79,18 @@ def build_vendor_comparison(yfinance_panel, alpha_vantage_panel):
     joined["close_abs_diff"] = (joined["yfinance_close_raw"] - joined["alpha_vantage_close_raw"]).abs()
     close_denom = (joined["yfinance_close_raw"].abs() + joined["alpha_vantage_close_raw"].abs()) / 2.0
     joined["close_rel_diff"] = (joined["close_abs_diff"] / close_denom)
-    
+
     both_zero_close = (joined["yfinance_close_raw"] == 0) & (joined["alpha_vantage_close_raw"] == 0)
     joined.loc[both_zero_close, "close_rel_diff"] = 0.0
-    
+
     # 2. Volume Differences
     joined["volume_abs_diff"] = (joined["yfinance_volume_raw"] - joined["alpha_vantage_volume_raw"]).abs()
     vol_denom = (joined["yfinance_volume_raw"].abs() + joined["alpha_vantage_volume_raw"].abs()) / 2.0
     joined["volume_rel_diff"] = (joined["volume_abs_diff"] / vol_denom)
-    
+
     both_zero_vol = (joined["yfinance_volume_raw"] == 0) & (joined["alpha_vantage_volume_raw"] == 0)
     joined.loc[both_zero_vol, "volume_rel_diff"] = 0.0
-    
+
     return joined[[
         "yfinance_observed",
         "alpha_vantage_observed",
@@ -103,3 +103,27 @@ def build_vendor_comparison(yfinance_panel, alpha_vantage_panel):
         "volume_abs_diff",
         "volume_rel_diff",
     ]]
+def build_jump_forensics(panel, threshold=0.25):
+    from cleanbars.normalize import validate_panel
+    import pandas as pd
+
+    validate_panel(panel)
+    jump_checks = build_jump_checks(panel, threshold=threshold)
+
+    forensics = pd.DataFrame(index=panel.index)
+    forensics["previous_close_raw"] = panel["close_raw"].groupby(level="asset_id").shift(1)
+    forensics["close_raw"] = panel["close_raw"]
+    forensics["raw_close_return"] = jump_checks["raw_close_return"]
+    forensics["abs_return"] = jump_checks["raw_close_return"].abs()
+    forensics["split_factor"] = panel["split_factor"]
+    forensics["cash_dividend"] = panel["cash_dividend"]
+    forensics["source"] = panel["source"]
+
+    mask = jump_checks["suspicious_jump"].fillna(False).astype(bool)
+
+    cols = [
+        "previous_close_raw", "close_raw", "raw_close_return", "abs_return",
+        "split_factor", "cash_dividend", "source"
+    ]
+
+    return forensics.loc[mask, cols].copy()

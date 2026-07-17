@@ -8,8 +8,8 @@ def expected_sessions(start_date, end_date, calendar_name="XNYS"):
 
     if start > end:
         raise ValueError("start_date cannot be later than end_date.")
-    
-    calendar = xcals.get_calendar(calendar_name)
+
+    calendar = xcals.get_calendar("XNYS", start="1960-01-01")
 
     sessions = calendar.sessions_in_range(start, end)
 
@@ -18,7 +18,19 @@ def expected_sessions(start_date, end_date, calendar_name="XNYS"):
 
     return sessions
 
-def build_calendar_audit(panel, sessions):
+def build_calendar_audit(panel, sessions, audit_start=None):
+    import pandas as pd
+    if audit_start is not None:
+        audit_start = pd.Timestamp(audit_start)
+        if audit_start.tzinfo is not None:
+            raise ValueError("audit_start must be timezone-naive")
+        if audit_start != audit_start.normalize():
+            raise ValueError("audit_start must be normalized")
+
+        # Filter expected sessions and observed dates to the audit window
+        sessions = sessions[sessions >= audit_start]
+        panel = panel.loc[panel.index.get_level_values("date") >= audit_start]
+
     # Gather all possible dates and unique assets
     dates_in_panel = panel.index.get_level_values("date")
     assets = panel.index.get_level_values("asset_id").unique()
@@ -44,7 +56,7 @@ def build_calendar_audit(panel, sessions):
     # Calculate the final missing/unexpected flags
     audit["missing_vendor_row"] = audit["expected"] & ~audit["observed"]
     audit["unexpected_session"] = audit["observed"] & ~audit["expected"]
-    
+
     # Return exactly the required columns in the correct order
     return audit[["missing_vendor_row", "unexpected_session", "observed", "expected"]]
 

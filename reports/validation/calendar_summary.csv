@@ -1,0 +1,11 @@
+asset_id,yfinance_missing_rows,yfinance_unexpected_sessions,alpha_vantage_missing_rows,alpha_vantage_unexpected_sessions
+SPY,0,0,0,0
+AAPL,0,0,0,0
+MSFT,0,0,0,0
+KO,0,0,0,0
+NVDA,0,0,0,0
+TSLA,0,0,0,0
+FIZZ,0,0,0,0
+PLTR,0,0,0,0
+COIN,0,0,0,0
+BRK.B,0,0,0,0

@@ -1,5 +1,6 @@
 import pandas as pd
 import exchange_calendars as xcals
+from cleanbars.normalize import validate_panel
 
 def expected_sessions(start_date, end_date, calendar_name="XNYS"):
 
@@ -60,3 +61,48 @@ def build_calendar_audit(panel, sessions, audit_start=None):
     # Return exactly the required columns in the correct order
     return audit[["missing_vendor_row", "unexpected_session", "observed", "expected"]]
 
+
+def build_session_completeness_audit(panel, calendar_name="XNYS",):
+    validate_panel(panel)
+
+    calendar = xcals.get_calendar(calendar_name, start="1960-01-01")
+    dates = panel.index.get_level_values("date")
+    unique_dates = dates.unique()
+
+    close_times = {}
+    for d in unique_dates:
+        if calendar.is_session(d):
+            close_times[d] = calendar.session_close(d).tz_convert("UTC")
+        else:
+            close_times[d] = pd.NaT
+
+    audit = pd.DataFrame(index=panel.index)
+    audit['retrieved_at'] = panel["retrieved_at"]
+    audit["session_close_utc"] = pd.Series(
+        dates.map(close_times),
+        index=panel.index,
+        dtype="datetime64[ns, UTC]"
+    )
+
+    # Flag is True if retrieved before the session closed.
+    # Evaluating against NaT natively results in False (for non-sessions)
+    audit["potentially_incomplete"] = audit["retrieved_at"] < audit["session_close_utc"]
+
+    return audit
+
+def filter_complete_sessions(panel, completeness_audit):
+    validate_panel(panel)
+    
+    if not completeness_audit.index.equals(panel.index):
+        raise ValueError("Audit index must exactly match panel index.")
+    
+    if "potentially_incomplete" not in completeness_audit.columns:
+        raise ValueError("Audit must contain a 'potentially_incomplete' column")
+    
+    if completeness_audit["potentially_incomplete"].isna().any():
+        raise ValueError("'potentially_incomplete' column can not have any missing values")
+    
+    filtered = panel.loc[~completeness_audit["potentially_incomplete"]].copy()
+    validate_panel(filtered)
+
+    return filtered

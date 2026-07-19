@@ -103,9 +103,9 @@ def build_vendor_comparison(yfinance_panel, alpha_vantage_panel):
         "volume_abs_diff",
         "volume_rel_diff",
     ]]
+
+
 def build_jump_forensics(panel, threshold=0.25):
-    from cleanbars.normalize import validate_panel
-    import pandas as pd
 
     validate_panel(panel)
     jump_checks = build_jump_checks(panel, threshold=threshold)
